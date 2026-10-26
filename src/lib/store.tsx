@@ -23,6 +23,7 @@ import {
   newMemorizeSchedule,
   newRecurringSchedule,
   reviewMemorize,
+  setSpacing,
 } from './schedule';
 
 const FILE_NAME = 'spacingmemo.json';
@@ -36,6 +37,8 @@ export type ItemInput = {
   mode: Schedule['mode'];
   every: number;
   unit: RecurringUnit;
+  // Memorize only: set the spacing by hand (in days). Omit to leave it as is.
+  spacingDays?: number;
 };
 
 type Store = {
@@ -153,6 +156,10 @@ export function StoreProvider({ children, fallback }: { children: ReactNode; fal
       const now = new Date();
       const fields = { title: input.title, notes: input.notes, categoryId: input.categoryId };
       const existing = id ? ref.current.items.find((i) => i.id === id) : undefined;
+      const withSpacing = (item: Item) =>
+        input.mode === 'memorize' && input.spacingDays !== undefined
+          ? setSpacing(item, input.spacingDays, now, ref.current.settings)
+          : item;
       if (!existing) {
         const item: Item = {
           id: newId(),
@@ -161,7 +168,7 @@ export function StoreProvider({ children, fallback }: { children: ReactNode; fal
           due: initialDue(now),
           schedule: initialSchedule(input, now),
         };
-        setItems([...ref.current.items, item]);
+        setItems([...ref.current.items, withSpacing(item)]);
         return;
       }
       let updated: Item = { ...existing, ...fields };
@@ -171,6 +178,7 @@ export function StoreProvider({ children, fallback }: { children: ReactNode; fal
       } else if (input.mode === 'recurring') {
         updated = { ...updated, schedule: newRecurringSchedule(input.every, input.unit) };
       }
+      updated = withSpacing(updated);
       setItems(ref.current.items.map((i) => (i.id === id ? updated : i)));
     },
     deleteItem(id) {

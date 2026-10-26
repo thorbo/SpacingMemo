@@ -2,7 +2,7 @@
 // Due dates are always the start of a local day, so an item is "due" for
 // that whole day. `allItems` is used to count how busy each day is.
 
-import { createEmptyCard, fsrs, generatorParameters, Rating } from 'ts-fsrs';
+import { createEmptyCard, fsrs, generatorParameters, Rating, State } from 'ts-fsrs';
 import type { Card, Grade } from 'ts-fsrs';
 
 import type {
@@ -183,6 +183,34 @@ export function completeRecurring(
       ? addMonths(today, every)
       : addDays(today, unit === 'week' ? every * 7 : every);
   return { ...item, due: due.toISOString() };
+}
+
+export const MAX_SPACING_DAYS = 36500;
+
+// Sets a memorize item's spacing by hand, e.g. "I already know this, 60 days".
+// FSRS stores stability (days until recall drops to 90%), and the gap is
+// stability × interval modifier for the memory target, so we solve for the
+// stability that gives this gap. Due = today + gap, with no fuzz or cap.
+export function setSpacing(item: Item, days: number, now: Date, settings: Settings): Item {
+  if (item.schedule.mode !== 'memorize') throw new Error('Item is not in memorize mode');
+  const gap = Math.min(MAX_SPACING_DAYS, Math.max(1, Math.round(days)));
+  const f = scheduler(settings);
+  const current = toCard(item.schedule.fsrs);
+  // A new item has no difficulty yet; use what a first Good would give.
+  const difficulty =
+    current.reps > 0 ? current.difficulty : f.next(createEmptyCard(now), now, Rating.Good).card.difficulty;
+  const due = addDays(startOfDay(now), gap);
+  const card: Card = {
+    ...current,
+    stability: gap / f.interval_modifier,
+    difficulty,
+    state: State.Review,
+    reps: Math.max(1, current.reps),
+    scheduled_days: gap,
+    last_review: now,
+    due,
+  };
+  return { ...item, due: due.toISOString(), schedule: { ...item.schedule, fsrs: fromCard(card) } };
 }
 
 // Skip without reviewing: FSRS state is untouched; the item moves to the

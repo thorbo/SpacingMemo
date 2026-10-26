@@ -56,7 +56,7 @@ A phone app (iPhone first, via Expo Go) that reminds you to review things on a s
 2. Categories → Items in a category → Add/Edit item. A category can only be deleted when it has no items.
 3. Settings — notification time, daily cap, punt window, target recall, Export, Import, "Last exported: N days ago".
 
-Spacing is always visible: memorize items show their current FSRS gap (e.g. "Memorize · 30d"), and each action button shows where it would move the item (e.g. Good "45d"). The shown result is exactly what the tap applies.
+Spacing is always visible: memorize items show their current FSRS gap (e.g. "Memorize · 30d"), and each action button shows where it would move the item (e.g. Good "45d"). The shown result is exactly what the tap applies. On the item page, the spacing (days) can be set by hand, e.g. 60 for something already known: the app solves for the FSRS stability that gives that gap at the current memory target, sets the next review to today + gap, and Good keeps growing from there.
 
 ## Storage & backup
 

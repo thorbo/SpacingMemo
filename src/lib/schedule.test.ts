@@ -12,8 +12,10 @@ import {
   isDue,
   newMemorizeSchedule,
   newRecurringSchedule,
+  MAX_SPACING_DAYS,
   punt,
   reviewMemorize,
+  setSpacing,
   startOfDay,
 } from './schedule.ts';
 
@@ -222,6 +224,41 @@ describe('completeRecurring', () => {
   it('throws for a memorize item', () => {
     const now = at('2026-10-25');
     assert.throws(() => completeRecurring(memorizeItem(now), 'done', now, DEFAULT_SETTINGS, []));
+  });
+});
+
+describe('setSpacing', () => {
+  const now = at('2026-10-25');
+
+  it('makes the item due exactly that many days from today', () => {
+    const next = setSpacing(memorizeItem(now), 60, now, DEFAULT_SETTINGS);
+    assert.equal(next.due, day('2026-12-24'));
+    assert.equal(next.schedule.mode === 'memorize' && next.schedule.fsrs.scheduled_days, 60);
+  });
+
+  it('works on a new item and then keeps growing from there on Good', () => {
+    const set = setSpacing(memorizeItem(now), 30, now, DEFAULT_SETTINGS);
+    const reviewAt = new Date(new Date(set.due).getTime() + 9 * 3600e3);
+    const next = reviewMemorize(set, 'good', reviewAt, DEFAULT_SETTINGS, [], first);
+    assert.ok(daysBetween(reviewAt, new Date(next.due)) > 30);
+  });
+
+  it('works at any memory target', () => {
+    for (const targetRecall of [0.85, 0.95, 0.97]) {
+      const settings: Settings = { ...DEFAULT_SETTINGS, targetRecall };
+      const next = setSpacing(memorizeItem(now), 45, now, settings);
+      assert.equal(next.due, day('2026-12-09'), `target ${targetRecall}`);
+    }
+  });
+
+  it('clamps to 1 day and the maximum', () => {
+    assert.equal(setSpacing(memorizeItem(now), 0, now, DEFAULT_SETTINGS).due, day('2026-10-26'));
+    const far = setSpacing(memorizeItem(now), MAX_SPACING_DAYS + 50, now, DEFAULT_SETTINGS);
+    assert.equal(far.schedule.mode === 'memorize' && far.schedule.fsrs.scheduled_days, MAX_SPACING_DAYS);
+  });
+
+  it('throws for a recurring item', () => {
+    assert.throws(() => setSpacing(recurringItem(1, 'month', day('2026-10-25')), 30, now, DEFAULT_SETTINGS));
   });
 });
 
