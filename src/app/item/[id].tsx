@@ -4,6 +4,7 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Pressable, Text, TextInput, View } from 'react-native';
 
+import { dueLabel, scheduleLabel } from '@/lib/format';
 import type { RecurringUnit, Schedule } from '@/lib/model';
 import { useStore } from '@/lib/store';
 import { Button, Label, Muted, Screen, Segmented, styles } from '@/ui/components';
@@ -80,6 +81,12 @@ export default function ItemScreen() {
           ),
         }}
       />
+
+      {existing && (
+        <Muted>
+          {scheduleLabel(existing)} · Next review: {dueLabel(existing.due, new Date())}
+        </Muted>
+      )}
 
       <Label>Title</Label>
       <TextInput

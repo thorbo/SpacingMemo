@@ -1,8 +1,8 @@
 import { router } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { daysUntil, dueLabel, scheduleLabel } from '@/lib/format';
+import { daysUntil, dueLabel, formatGap, scheduleLabel } from '@/lib/format';
 import type { Item, MemorizeAction, RecurringAction } from '@/lib/model';
 import { isDue } from '@/lib/schedule';
 import { useStore } from '@/lib/store';
@@ -23,10 +23,13 @@ const RECURRING_ACTIONS: { action: Action; title: string }[] = [
   { action: 'punt', title: 'Punt' },
 ];
 
+const actionsFor = (item: Item) =>
+  item.schedule.mode === 'memorize' ? MEMORIZE_ACTIONS : RECURRING_ACTIONS;
+
 const UNDO_MS = 5000;
 
 export default function TodayScreen() {
-  const { data, act, restoreItem } = useStore();
+  const { data, preview, replaceItem } = useStore();
   const c = useColors();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [undo, setUndo] = useState<{ item: Item; title: string } | null>(null);
@@ -38,18 +41,34 @@ export default function TodayScreen() {
   const due = data.items.filter((i) => isDue(i, now)).sort((a, b) => a.due.localeCompare(b.due));
   const categoryName = (id: string) => data.categories.find((cat) => cat.id === id)?.name ?? '';
 
+  // Results for the expanded card's buttons, computed once so the gap shown on
+  // a button is exactly what tapping it applies.
+  const previews = useMemo(() => {
+    const result = new Map<Action, Item>();
+    const item = data.items.find((i) => i.id === expandedId);
+    if (!item) return result;
+    for (const { action } of actionsFor(item)) {
+      const next = preview(item.id, action);
+      if (next) result.set(action, next);
+    }
+    return result;
+  }, [expandedId, data]);
+
+  const nextIn = (next: Item) => formatGap(Math.max(0, daysUntil(next.due, now)));
+
   const onAction = (item: Item, action: Action, title: string) => {
-    const before = act(item.id, action);
-    if (!before) return;
+    const next = previews.get(action);
+    if (!next) return;
+    replaceItem(next);
     setExpandedId(null);
-    setUndo({ item: before, title: `${title}: ${item.title}` });
+    setUndo({ item, title: `${title}: ${item.title}, next in ${nextIn(next)}` });
     clearTimeout(undoTimer.current);
     undoTimer.current = setTimeout(() => setUndo(null), UNDO_MS);
   };
 
   const onUndo = () => {
     if (!undo) return;
-    restoreItem(undo.item);
+    replaceItem(undo.item);
     clearTimeout(undoTimer.current);
     setUndo(null);
   };
@@ -67,7 +86,7 @@ export default function TodayScreen() {
         {due.map((item) => {
           const expanded = item.id === expandedId;
           const late = daysUntil(item.due, now) < 0;
-          const actions = item.schedule.mode === 'memorize' ? MEMORIZE_ACTIONS : RECURRING_ACTIONS;
+          const actions = actionsFor(item);
           return (
             <Card key={item.id}>
               <Pressable
@@ -90,15 +109,19 @@ export default function TodayScreen() {
                 <View style={{ marginTop: 12, gap: 12 }}>
                   {item.notes ? <Text style={{ color: c.text, fontSize: 16 }}>{item.notes}</Text> : null}
                   <View style={styles.actions}>
-                    {actions.map(({ action, title }) => (
+                    {actions.map(({ action, title }) => {
+                      const next = previews.get(action);
+                      return (
                       <Button
                         key={action}
                         title={title}
+                        detail={next ? nextIn(next) : undefined}
                         big
                         variant={action === 'punt' ? 'quiet' : 'default'}
                         onPress={() => onAction(item, action, title)}
                       />
-                    ))}
+                      );
+                    })}
                   </View>
                 </View>
               )}

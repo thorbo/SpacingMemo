@@ -39,13 +39,15 @@ export function Muted({ children }: { children: ReactNode }) {
 
 type ButtonProps = {
   title: string;
+  // Small second line, e.g. how far a review moves the item.
+  detail?: string;
   onPress: () => void;
   variant?: 'default' | 'primary' | 'quiet' | 'danger';
   big?: boolean;
   style?: ViewStyle;
 };
 
-export function Button({ title, onPress, variant = 'default', big, style }: ButtonProps) {
+export function Button({ title, detail, onPress, variant = 'default', big, style }: ButtonProps) {
   const c = useColors();
   const color = { default: c.text, primary: c.accent, quiet: c.muted, danger: c.danger }[variant];
   return (
@@ -60,6 +62,7 @@ export function Button({ title, onPress, variant = 'default', big, style }: Butt
         style,
       ]}>
       <Text style={[styles.buttonText, big && styles.bigButtonText, { color }]}>{title}</Text>
+      {detail ? <Text style={{ color: c.muted, fontSize: 13, marginTop: 2 }}>{detail}</Text> : null}
     </Pressable>
   );
 }

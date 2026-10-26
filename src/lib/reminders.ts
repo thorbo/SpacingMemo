@@ -23,12 +23,29 @@ function atTime(day: Date, hhmm: string): Date {
   return d;
 }
 
+// Days without an export before notifications add a backup reminder.
+export const BACKUP_AFTER_DAYS = 30;
+
 const countBody = (count: number) => `${count} ${count === 1 ? 'item' : 'items'} due today`;
 
-export function planReminders(items: Item[], notifyTime: string, now: Date): PlannedReminder[] {
+// `lastExportAt` is when a backup was last exported; if never, the age of the
+// oldest item counts instead.
+export function planReminders(
+  items: Item[],
+  notifyTime: string,
+  now: Date,
+  lastExportAt?: string,
+): PlannedReminder[] {
   if (items.length === 0) return [];
   const dueDays = items.map((i) => startOfDay(new Date(i.due))).sort((a, b) => a.getTime() - b.getTime());
   const plan: PlannedReminder[] = [];
+
+  const backupBase = startOfDay(
+    new Date(lastExportAt ?? items.reduce((a, b) => (a.createdAt < b.createdAt ? a : b)).createdAt),
+  );
+  const backupDue = addDays(backupBase, BACKUP_AFTER_DAYS);
+  const body = (day: Date, count: number) =>
+    day >= backupDue ? `${countBody(count)}. Time to export a backup.` : countBody(count);
 
   // Nothing is due before the earliest due day, so start there (or today).
   const today = startOfDay(now);
@@ -38,7 +55,7 @@ export function planReminders(items: Item[], notifyTime: string, now: Date): Pla
     // Anything not acted on stays due, so a day's count includes earlier days.
     // Once something is due, every later day has a count, so this loop ends.
     const count = dueDays.filter((d) => d <= day).length;
-    if (date > now && count > 0) plan.push({ date, body: countBody(count) });
+    if (date > now && count > 0) plan.push({ date, body: body(day, count) });
     day = addDays(day, 1);
   }
 

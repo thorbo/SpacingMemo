@@ -40,6 +40,27 @@ describe('planReminders', () => {
     assert.deepEqual(plan[0].date, at('2026-10-28', '08:00'));
   });
 
+  it('adds a backup reminder once 30 days pass since the last export', () => {
+    const items = [item(day('2026-10-25'))];
+    const plan = planReminders(items, '08:00', at('2026-10-25', '07:00'), day('2026-09-27'));
+    // Exported 9/27, so the note starts on 10/27.
+    assert.equal(plan[0].body, '1 item due today'); // 10/25
+    assert.equal(plan[1].body, '1 item due today'); // 10/26
+    assert.equal(plan[2].body, '1 item due today. Time to export a backup.'); // 10/27
+  });
+
+  it('with no export, counts from the oldest item', () => {
+    const items = [item(day('2026-09-01'), 'old'), item(day('2026-10-25'), 'new')];
+    const plan = planReminders(items, '08:00', at('2026-10-25', '07:00'));
+    assert.match(plan[0].body, /Time to export a backup/);
+  });
+
+  it('a recent export means no backup reminder', () => {
+    const items = [item(day('2026-09-01'))];
+    const plan = planReminders(items, '08:00', at('2026-10-25', '07:00'), day('2026-10-20'));
+    assert.equal(plan[0].body, '1 item due today');
+  });
+
   it('books far-out items with no time limit', () => {
     const plan = planReminders([item(day('2027-04-25'))], '08:00', at('2026-10-25', '07:00'));
     assert.deepEqual(plan[0], { date: at('2027-04-25', '08:00'), body: '1 item due today' });

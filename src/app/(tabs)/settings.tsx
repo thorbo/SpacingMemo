@@ -1,13 +1,14 @@
-import { View } from 'react-native';
+import { Alert, View } from 'react-native';
 
-import { formatTime } from '@/lib/format';
+import { exportBackup, pickBackup } from '@/lib/backup';
+import { daysUntil, formatTime } from '@/lib/format';
 import { useStore } from '@/lib/store';
-import { Card, Label, Muted, Screen, Stepper } from '@/ui/components';
+import { Button, Card, Label, Muted, Screen, Stepper } from '@/ui/components';
 
 const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, n));
 
 export default function SettingsScreen() {
-  const { data, updateSettings } = useStore();
+  const { data, updateSettings, replaceAll, markExported } = useStore();
   const { notifyTime, dailyCap, puntWindowDays, targetRecall } = data.settings;
 
   // Time moves in 15-minute steps and wraps around midnight.
@@ -21,6 +22,36 @@ export default function SettingsScreen() {
 
   const setPunt = (min: number, max: number) =>
     updateSettings({ puntWindowDays: { min: clamp(min, 1, max), max: clamp(max, min, 14) } });
+
+  // The share sheet doesn't say whether a file was actually saved, so closing
+  // it counts as an export.
+  const onExport = () => {
+    exportBackup(data)
+      .then(markExported)
+      .catch((error) => Alert.alert("Couldn't export", String(error)));
+  };
+
+  const exportAge = data.lastExportAt ? -daysUntil(data.lastExportAt, new Date()) : null;
+  const lastExported =
+    exportAge === null ? 'never' : exportAge === 0 ? 'today' : `${exportAge} ${exportAge === 1 ? 'day' : 'days'} ago`;
+
+  const onImport = async () => {
+    try {
+      const backup = await pickBackup();
+      if (!backup) return;
+      Alert.alert(
+        'Replace all data?',
+        `The backup has ${backup.categories.length} categories and ${backup.items.length} items. ` +
+          'Everything currently on this phone will be replaced.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Replace', style: 'destructive', onPress: () => replaceAll(backup) },
+        ],
+      );
+    } catch (error) {
+      Alert.alert("Couldn't import", error instanceof Error ? error.message : String(error));
+    }
+  };
 
   const recallPercent = Math.round(targetRecall * 100);
   const setRecall = (percent: number) => updateSettings({ targetRecall: clamp(percent, 70, 99) / 100 });
@@ -68,9 +99,15 @@ export default function SettingsScreen() {
       <Muted>Higher means more frequent reviews and stronger memory.</Muted>
 
       <Label>Backup</Label>
-      <View>
-        <Muted>Export and import are coming in a later step.</Muted>
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        <Button title="Export data" onPress={onExport} style={{ flex: 1 }} />
+        <Button title="Import data" onPress={onImport} style={{ flex: 1 }} />
       </View>
+      <Muted>Last exported: {lastExported}.</Muted>
+      <Muted>
+        Export saves a file you can keep in iCloud Drive. Import replaces everything on this phone. After 30 days
+        without an export, the daily notification reminds you to back up.
+      </Muted>
     </Screen>
   );
 }

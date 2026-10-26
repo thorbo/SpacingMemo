@@ -16,10 +16,19 @@ export function dueLabel(iso: string, now: Date): string {
   return `in ${days} days`;
 }
 
+// Short gap: "12d", "4mo", "1.5y".
+export function formatGap(days: number): string {
+  if (days < 100) return `${days}d`;
+  if (days < 365) return `${Math.round(days / 30)}mo`;
+  return `${(days / 365).toFixed(1)}y`;
+}
+
+// Memorize items show FSRS's current gap, e.g. "Memorize · 30d".
 export function scheduleLabel(item: Item): string {
   const { schedule } = item;
-  if (schedule.mode === 'memorize') return 'Memorize';
-  return `Every ${plural(schedule.every, schedule.unit)}`;
+  if (schedule.mode === 'recurring') return `Every ${plural(schedule.every, schedule.unit)}`;
+  const { reps, scheduled_days } = schedule.fsrs;
+  return `Memorize · ${reps === 0 ? 'new' : formatGap(scheduled_days)}`;
 }
 
 export function formatTime(hhmm: string): string {

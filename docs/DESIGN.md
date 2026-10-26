@@ -41,19 +41,27 @@ A phone app (iPhone first, via Expo Go) that reminds you to review things on a s
 
 - **One daily notification** at a chosen time: "N items due today" — not one per item.
 - **Fuzz**: ±10% random shift on gaps ≥ 5 days.
-- **Daily cap** (default 10): if the target day is full, use the nearest lighter day within the fuzz window. Recurring items are never moved by the cap.
+- **Daily cap** (default 10): the new due day is picked at random among days in the fuzz window that are under the cap; if all are full, the least-loaded day. Recurring items are never moved by the cap.
 - **Overdue** items simply stay due; no penalty.
+
+## Notifications
+
+- Local notifications booked ahead (no server). Text is fixed when booked, so the whole set is cancelled and rebuilt after any data change and whenever the app opens.
+- A fixed-size queue: starting at the first day anything is due (however far out), one per day while anything is due, up to **15**, plus a final "Open SpacingMemo to keep your reminders coming." the day after.
+- Once 30 days pass without an export (or, if never exported, since the oldest item was created), notifications add "Time to export a backup."
 
 ## Screens
 
 1. Today — due items as collapsed cards (title, category, "N days late" tag until acted on). Tap a card to expand it: shows notes and large action buttons. One card expanded at a time. After any action button, a brief "Undo" banner (about 5 seconds) restores the item exactly as it was. When nothing is due: "Nothing due. Next item in N days." ("tomorrow" when N = 1; with no items at all, a prompt to add the first one).
 2. Categories → Items in a category → Add/Edit item. A category can only be deleted when it has no items.
-3. Settings — notification time, daily cap, punt window, target recall, Export, Import.
+3. Settings — notification time, daily cap, punt window, target recall, Export, Import, "Last exported: N days ago".
+
+Spacing is always visible: memorize items show their current FSRS gap (e.g. "Memorize · 30d"), and each action button shows where it would move the item (e.g. Good "45d"). The shown result is exactly what the tap applies.
 
 ## Storage & backup
 
-- All data in one JSON file in the app's document folder (`expo-file-system`).
-- **Export**: share that JSON file (iCloud Drive / Files) via `expo-sharing`.
+- All data in one JSON file in the app's document folder (`expo-file-system`). Saves write a temp file and move it over the real one; on load, the temp file is used if the real one is missing. If the file can't be read, the app never writes.
+- **Export**: share a copy via the iOS share sheet (`expo-sharing`); pick Save to Files → iCloud Drive to get it off the phone. Closing the share sheet counts as an export (it can't tell whether a file was saved).
 - **Import**: pick a JSON file via `expo-document-picker`, replace current data (after confirmation).
 - Reason: Expo Go data is lost if Expo Go is deleted — export is the safety net.
 

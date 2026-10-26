@@ -6,6 +6,7 @@ import * as Notifications from 'expo-notifications';
 import { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 
+import type { AppData } from './model';
 import { planReminders } from './reminders';
 import { useStore } from './store';
 
@@ -32,13 +33,14 @@ async function hasPermission(): Promise<boolean> {
 // Syncs run one at a time so a cancel can't race a schedule.
 let syncQueue = Promise.resolve();
 
-function sync(items: Parameters<typeof planReminders>[0], notifyTime: string) {
+function sync(data: AppData) {
+  const { items, settings, lastExportAt } = data;
   syncQueue = syncQueue
     .then(async () => {
       await Notifications.cancelAllScheduledNotificationsAsync();
       // Ask for permission only once there's something to remind about.
       if (items.length === 0 || !(await hasPermission())) return;
-      for (const { date, body } of planReminders(items, notifyTime, new Date())) {
+      for (const { date, body } of planReminders(items, settings.notifyTime, new Date(), lastExportAt)) {
         await Notifications.scheduleNotificationAsync({
           content: { title: 'SpacingMemo', body },
           trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date },
@@ -54,13 +56,13 @@ export function ReminderSync() {
   latest.current = data;
 
   useEffect(() => {
-    const timer = setTimeout(() => sync(data.items, data.settings.notifyTime), SYNC_DELAY_MS);
+    const timer = setTimeout(() => sync(data), SYNC_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [data.items, data.settings.notifyTime]);
+  }, [data]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state) => {
-      if (state === 'active') sync(latest.current.items, latest.current.settings.notifyTime);
+      if (state === 'active') sync(latest.current);
     });
     return () => subscription.remove();
   }, []);

@@ -46,10 +46,15 @@ type Store = {
   deleteCategory: (id: Id) => boolean;
   saveItem: (input: ItemInput, id?: Id) => void;
   deleteItem: (id: Id) => void;
-  // Applies a button action; returns the item as it was before, for Undo.
-  act: (id: Id, action: MemorizeAction | RecurringAction) => Item | undefined;
-  restoreItem: (item: Item) => void;
+  // What a button action would do, without saving it. Fuzz is random, so the
+  // screen applies this exact result (via replaceItem) to match what it showed.
+  preview: (id: Id, action: MemorizeAction | RecurringAction) => Item | undefined;
+  // Saves a changed item: an applied preview, or the old copy for Undo.
+  replaceItem: (item: Item) => void;
   updateSettings: (patch: Partial<Settings>) => void;
+  // Import: replaces everything with a backup.
+  replaceAll: (data: AppData) => void;
+  markExported: () => void;
 };
 
 const StoreContext = createContext<Store | null>(null);
@@ -60,23 +65,37 @@ function dataFile() {
 
 function load(): AppData {
   const file = dataFile();
-  if (!file.exists) return EMPTY;
-  const parsed = JSON.parse(file.textSync()) as AppData;
-  return { ...EMPTY, ...parsed, settings: { ...DEFAULT_SETTINGS, ...parsed.settings } };
+  // If a save was interrupted after removing the old file, the temp file holds the data.
+  const temp = new File(Paths.document, `${FILE_NAME}.tmp`);
+  const source = file.exists ? file : temp.exists ? temp : null;
+  return source ? parseBackup(source.textSync()) : EMPTY;
 }
 
 // Saves run one at a time, in order, so an older save can't overwrite a newer one.
 let saveQueue = Promise.resolve();
 
+// Writes a temp file, then swaps it in, so a crash mid-write can't leave a
+// half-written data file.
 function save(data: AppData) {
   const text = JSON.stringify(data);
   saveQueue = saveQueue
     .then(async () => {
-      const file = dataFile();
-      if (!file.exists) file.create();
-      await file.write(text);
+      const temp = new File(Paths.document, `${FILE_NAME}.tmp`);
+      if (temp.exists) temp.delete();
+      temp.create();
+      await temp.write(text);
+      await temp.move(dataFile(), { overwrite: true });
     })
     .catch((error) => console.warn('Saving failed', error));
+}
+
+// Checks that parsed JSON looks like a SpacingMemo backup.
+export function parseBackup(text: string): AppData {
+  const parsed = JSON.parse(text) as Partial<AppData>;
+  if (parsed.version !== 1 || !Array.isArray(parsed.categories) || !Array.isArray(parsed.items)) {
+    throw new Error("This file isn't a SpacingMemo backup.");
+  }
+  return { ...EMPTY, ...parsed, settings: { ...DEFAULT_SETTINGS, ...parsed.settings } } as AppData;
 }
 
 export function newId(): Id {
@@ -157,23 +176,26 @@ export function StoreProvider({ children, fallback }: { children: ReactNode; fal
     deleteItem(id) {
       setItems(ref.current.items.filter((i) => i.id !== id));
     },
-    act(id, action) {
+    preview(id, action) {
       const { items, settings } = ref.current;
       const item = items.find((i) => i.id === id);
       if (!item) return undefined;
       const now = new Date();
-      const next =
-        item.schedule.mode === 'memorize'
-          ? reviewMemorize(item, action as MemorizeAction, now, settings, items)
-          : completeRecurring(item, action as RecurringAction, now, settings, items);
-      setItems(items.map((i) => (i.id === id ? next : i)));
-      return item;
+      return item.schedule.mode === 'memorize'
+        ? reviewMemorize(item, action as MemorizeAction, now, settings, items)
+        : completeRecurring(item, action as RecurringAction, now, settings, items);
     },
-    restoreItem(item) {
+    replaceItem(item) {
       setItems(ref.current.items.map((i) => (i.id === item.id ? item : i)));
     },
     updateSettings(patch) {
       commit({ ...ref.current, settings: { ...ref.current.settings, ...patch } });
+    },
+    replaceAll(next) {
+      commit(next);
+    },
+    markExported() {
+      commit({ ...ref.current, lastExportAt: new Date().toISOString() });
     },
   };
 

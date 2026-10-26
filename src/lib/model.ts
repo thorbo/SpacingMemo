@@ -69,4 +69,5 @@ export type AppData = {
   categories: Category[];
   items: Item[];
   settings: Settings;
+  lastExportAt?: IsoDate;
 };
