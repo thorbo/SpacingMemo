@@ -1,6 +1,7 @@
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { Text, View, useColorScheme } from 'react-native';
 
+import { ReminderSync } from '@/lib/notifications';
 import { StoreProvider } from '@/lib/store';
 
 function LoadError({ error }: { error: string }) {
@@ -18,6 +19,7 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={scheme === 'dark' ? DarkTheme : DefaultTheme}>
       <StoreProvider fallback={(error) => <LoadError error={error} />}>
+        <ReminderSync />
         <Stack>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="category/[id]" options={{ title: '' }} />

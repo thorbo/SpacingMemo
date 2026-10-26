@@ -54,7 +54,7 @@ export default function SettingsScreen() {
           onPlus={() => setPunt(puntWindowDays.min, puntWindowDays.max + 1)}
         />
       </Card>
-      <Muted>Notifications aren't connected yet; the time is saved for when they are.</Muted>
+      <Muted>One notification a day with how many items are due. Allow notifications when your phone asks.</Muted>
 
       <Label>Memorize</Label>
       <Card>
