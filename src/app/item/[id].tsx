@@ -95,7 +95,7 @@ export default function ItemScreen() {
           setTitle(t);
           setError('');
         }}
-        placeholder="Clair de lune, bars 1–27"
+        placeholder="What do you want to remember?"
         placeholderTextColor={c.muted}
         style={inputStyle}
       />
