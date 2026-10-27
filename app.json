@@ -8,7 +8,10 @@
     "scheme": "spacingmemo",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "runtimeVersion": {
+        "policy": "sdkVersion"
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -35,6 +38,20 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "fdfb9f76-820c-4db5-a36b-095fe968f368"
+      }
+    },
+    "owner": "thorbo",
+    "updates": {
+      "url": "https://u.expo.dev/fdfb9f76-820c-4db5-a36b-095fe968f368"
     }
   }
 }
